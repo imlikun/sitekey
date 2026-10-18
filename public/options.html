@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SiteKey 设置</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <div class="ambient" aria-hidden="true">
+      <span class="blob blob-a"></span>
+      <span class="blob blob-b"></span>
+    </div>
+
+    <main class="wrap">
+      <header class="page-head">
+        <div class="brand">
+          <div class="logo">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4.5" y="10.5" width="15" height="10" rx="2.8" />
+              <path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7" />
+            </svg>
+          </div>
+          <div class="brand-text">
+            <h1>SiteKey</h1>
+            <p>本地优先的密码管理器</p>
+          </div>
+        </div>
+        <div class="status" id="status" data-state="locked">
+          <span class="dot"></span>
+          <span id="status-text">检查中…</span>
+        </div>
+      </header>
+
+      <section class="card" id="unlock-card" hidden>
+        <div class="card-head">
+          <h2>解锁保险库</h2>
+          <p>导入 Chrome 密码、修改主密码、清空数据前需要先解锁。</p>
+        </div>
+        <form class="inline-form" id="unlock-form">
+          <input class="field" id="unlock-pw" type="password" placeholder="主密码" autocomplete="current-password" />
+          <button class="btn primary" type="submit">解锁</button>
+        </form>
+        <div class="error" id="unlock-error" hidden></div>
+      </section>
+
+      <section class="card" id="init-card" hidden>
+        <div class="card-head">
+          <h2>还没有创建保险库</h2>
+          <p>点击浏览器工具栏里的 SiteKey 图标，按提示创建主密码。</p>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>安全</h2>
+          <p>密钥只保存在本次浏览器会话的内存里，关闭浏览器即失效。</p>
+        </div>
+        <div class="row">
+          <div class="row-label">
+            <span>自动锁定</span>
+            <small>无操作超过这个时间后，要求重新输入主密码</small>
+          </div>
+          <select class="field compact" id="auto-lock">
+            <option value="1">1 分钟</option>
+            <option value="5">5 分钟</option>
+            <option value="15">15 分钟</option>
+            <option value="30">30 分钟</option>
+            <option value="60">1 小时</option>
+          </select>
+        </div>
+        <div class="row">
+          <div class="row-label">
+            <span>立即锁定</span>
+            <small>清除内存中的密钥，直到下次输入主密码</small>
+          </div>
+          <button class="btn" id="lock-now">锁定</button>
+        </div>
+        <div class="row">
+          <div class="row-label">
+            <span>修改主密码</span>
+            <small>会用新密钥重新加密整个保险库</small>
+          </div>
+          <button class="btn" id="toggle-password-form" data-needs-unlock>修改</button>
+        </div>
+        <form class="password-form" id="password-form" hidden>
+          <input class="field" id="current-pw" type="password" placeholder="当前主密码" autocomplete="current-password" />
+          <input class="field" id="next-pw" type="password" placeholder="新主密码（至少 8 位）" autocomplete="new-password" />
+          <button class="btn primary" type="submit">确认修改</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>捕获</h2>
+          <p>只在可信的登录表单上工作，验证码、搜索框和改密表单不会触发。</p>
+        </div>
+        <div class="row">
+          <div class="row-label">
+            <span>自动捕获</span>
+            <small>登录成功后询问是否保存账号密码</small>
+          </div>
+          <button class="switch" role="switch" id="toggle-capture" aria-checked="true" aria-label="自动捕获"></button>
+        </div>
+        <div class="row">
+          <div class="row-label">
+            <span>显示保存提示</span>
+            <small>关闭后仍然可以手动添加，不会主动打扰</small>
+          </div>
+          <button class="switch" role="switch" id="toggle-prompt" aria-checked="true" aria-label="显示保存提示"></button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>数据</h2>
+          <p>所有数据都在本机。导出的备份文件本身是加密的。</p>
+        </div>
+        <div class="row">
+          <div class="row-label">
+            <span>导出加密备份</span>
+            <small>用当前主密码才能解密，请妥善保管</small>
+          </div>
+          <button class="btn" id="export">导出</button>
+        </div>
+        <div class="row">
+          <div class="row-label">
+            <span>导入备份</span>
+            <small>会覆盖当前保险库，导入后需要重新解锁</small>
+          </div>
+          <label class="btn file-btn" id="import-label">
+            选择文件
+            <input type="file" id="import-file" accept="application/json,.json" hidden />
+          </label>
+        </div>
+        <div class="row">
+          <div class="row-label">
+            <span>导入 Chrome 密码</span>
+            <small>在 Chrome 设置里导出 CSV，再在这里导入</small>
+          </div>
+          <label class="btn file-btn" id="csv-label" data-needs-unlock>
+            选择 CSV
+            <input type="file" id="csv-file" accept=".csv,text/csv" hidden />
+          </label>
+        </div>
+        <div class="row">
+          <div class="row-label">
+            <span>清空保险库</span>
+            <small>删除本机全部账号密码，无法撤销</small>
+          </div>
+          <button class="btn danger" id="clear" data-needs-unlock>清空</button>
+        </div>
+      </section>
+
+      <section class="card about">
+        <div class="card-head">
+          <h2>关于</h2>
+        </div>
+        <p class="about-text">SiteKey v0.1.0 · MIT License · 不联网、不埋点、不做账号体系。</p>
+        <p class="about-text">快捷键 <kbd>⌘⇧L</kbd> 填入当前站点最近使用的账号。</p>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" hidden></div>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>
