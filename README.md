@@ -149,7 +149,7 @@ npm run typecheck  # tsc --noEmit
 npm run icons      # 重新生成图标
 ```
 
-弹窗支持脱离扩展预览：构建后直接用浏览器打开 `dist/popup.html`，会自动启用内存 mock 数据；加 `?state=locked` 或 `?state=setup` 可以预览锁定/初始化状态。
+弹窗支持脱离扩展预览：构建后直接用浏览器打开 `dist/popup.html`（不需要起本地服务器），会自动启用内存 mock 数据；加 `?state=locked` 或 `?state=setup` 可以预览锁定/初始化状态。为此 popup / options 两个入口打成 IIFE，而不是 ES module——`file://` 下浏览器会拦截 module 的跨源加载。
 
 ## 路线图
 

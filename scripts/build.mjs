@@ -16,11 +16,13 @@ const shared = {
   minify: !watch,
 };
 
+// popup / options 用 iife：这样 dist/*.html 可以直接用 file:// 打开预览，
+// 不需要起本地服务器（file:// 下浏览器会拦截 ES module 的跨源请求）。
 const targets = [
   { entry: "src/background/service-worker.ts", out: "dist/background.js", format: "esm" },
   { entry: "src/content/content.ts", out: "dist/content.js", format: "iife" },
-  { entry: "src/popup/popup.ts", out: "dist/popup.js", format: "esm" },
-  { entry: "src/options/options.ts", out: "dist/options.js", format: "esm" },
+  { entry: "src/popup/popup.ts", out: "dist/popup.js", format: "iife" },
+  { entry: "src/options/options.ts", out: "dist/options.js", format: "iife" },
 ];
 
 if (watch) {
