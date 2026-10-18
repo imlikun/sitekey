@@ -131,20 +131,40 @@ function filteredEntries(): Entry[] {
   );
 }
 
+function highlight(text: string, query: string): string {
+  const needle = query.trim();
+  if (!needle) return esc(text);
+  const haystack = text.toLowerCase();
+  const target = needle.toLowerCase();
+  if (!haystack.includes(target)) return esc(text);
+  let out = "";
+  let cursor = 0;
+  let at = haystack.indexOf(target);
+  while (at >= 0) {
+    out += esc(text.slice(cursor, at));
+    out += `<mark>${esc(text.slice(at, at + target.length))}</mark>`;
+    cursor = at + target.length;
+    at = haystack.indexOf(target, cursor);
+  }
+  return out + esc(text.slice(cursor));
+}
+
 function rowHtml(entry: Entry, index: number): string {
   // 偏移一位，保证相邻两行不会撞成同一个色块
   const hue = hueOf(entry.label || entry.username || entry.domain, index);
   const initial = initialOf(entry.label, entry.username, entry.domain);
   const recent = index === 0 && entry.lastUsedAt > 0;
+  const query = state.query.trim();
+  const tip = [entry.label, entry.username, entry.note].filter(Boolean).join(" · ");
   return `
-    <div class="row" data-id="${entry.id}" tabindex="0" role="button" aria-label="填入 ${esc(entry.label)}">
+    <div class="row" data-id="${entry.id}" tabindex="0" role="button" aria-label="填入 ${esc(entry.label)}" title="${esc(tip)}">
       <div class="avatar" style="--h:${hue}">${esc(initial)}</div>
       <div class="row-main">
         <div class="row-title">
-          <span class="label">${esc(entry.label)}</span>
+          <span class="label">${highlight(entry.label, query)}</span>
           ${recent ? '<span class="pill">上次</span>' : ""}
         </div>
-        <div class="row-sub">${esc(entry.username)}<span class="dot">·</span>${relativeTime(entry.lastUsedAt)}</div>
+        <div class="row-sub"><span class="who">${highlight(entry.username, query)}</span><span class="dot">·</span><span class="time">${relativeTime(entry.lastUsedAt)}</span></div>
       </div>
       <button class="icon-btn more" data-act="edit" data-id="${entry.id}" title="编辑" aria-label="编辑">${icons.more}</button>
     </div>
@@ -767,6 +787,19 @@ document.addEventListener("keydown", (event) => {
       }
       renderRows();
     }
+    return;
+  }
+
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    const rows = Array.from(document.querySelectorAll<HTMLElement>(".row[data-id]"));
+    const current =
+      event.target instanceof HTMLElement ? event.target.closest<HTMLElement>(".row[data-id]") : null;
+    if (!rows.length || !current) return;
+    const index = rows.indexOf(current);
+    if (index < 0) return;
+    event.preventDefault();
+    const next = event.key === "ArrowDown" ? Math.min(rows.length - 1, index + 1) : Math.max(0, index - 1);
+    rows[next].focus();
     return;
   }
 
