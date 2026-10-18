@@ -266,7 +266,9 @@ export async function importDrafts(drafts: EntryDraft[]): Promise<{ added: numbe
       (entry) =>
         entry.domain === domain &&
         entry.username.trim().toLowerCase() === username.toLowerCase() &&
-        entry.scope === draft.scope,
+        entry.scope === draft.scope &&
+        // 仅此域名的记录按 host 区分，否则 a.x.com 会把 b.x.com 的密码覆盖掉
+        (draft.scope !== "host" || entry.host === draft.host),
     );
     if (existing) {
       existing.password = draft.password;

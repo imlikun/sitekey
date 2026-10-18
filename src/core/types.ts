@@ -85,7 +85,7 @@ export type Request =
   | { type: "SET_SETTINGS"; settings: Partial<Settings> }
   | { type: "EXPORT" }
   | { type: "IMPORT"; record: VaultRecord }
-  | { type: "IMPORT_CSV"; text: string }
+  | { type: "IMPORT_CSV"; text: string; dryRun?: boolean }
   | { type: "CHANGE_PASSWORD"; current: string; next: string }
   | { type: "CLEAR" }
   | { type: "REFRESH_BADGE" }

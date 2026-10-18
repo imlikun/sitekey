@@ -391,6 +391,121 @@ body {
   display: none;
 }
 
+/* Chrome CSV 导入前的解析报告 */
+.import-panel {
+  margin: 4px 0 14px;
+  padding: 14px 16px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--stroke);
+  background: var(--field);
+}
+
+.import-file {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.import-facts span {
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  padding: 3px 9px;
+  border-radius: 7px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.import-caption {
+  margin: 14px 0 0;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--text-3);
+}
+
+.import-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.import-caption + .import-list {
+  margin-top: 5px;
+}
+
+.import-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.import-list .count {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+}
+
+.import-list .who {
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-list-muted li,
+.import-list-muted .count {
+  color: var(--text-3);
+}
+
+.import-list-warn li {
+  color: var(--red);
+}
+
+.import-note {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+.import-warn {
+  margin-top: 12px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--red);
+}
+
+.mono {
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+.import-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.import-actions .btn {
+  height: 32px;
+  font-size: 12px;
+}
+
 @media (max-width: 560px) {
   .wrap {
     padding: 32px 16px 60px;

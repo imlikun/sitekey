@@ -1,5 +1,5 @@
 import { hostFromUrl, registrableDomain } from "../core/domain";
-import { parseChromeCsv } from "../core/csv";
+import { parseChromeCsv, summarize } from "../core/csv";
 import { getSettings, saveSettings, setPendingCapture, takePendingCapture } from "../core/storage";
 import type { ContentRequest, PendingCapture, Request, Response } from "../core/types";
 import {
@@ -132,10 +132,12 @@ async function handle(request: Request, sender: chrome.runtime.MessageSender): P
 
     case "IMPORT_CSV": {
       await assertUnlocked();
-      const parsed = parseChromeCsv(request.text);
-      const counts = await importDrafts(parsed.drafts);
+      const report = parseChromeCsv(request.text);
+      // 第一段：只解析、不落库，把分类结果交回设置页让用户确认
+      if (request.dryRun) return { ok: true, report: summarize(report) };
+      const counts = await importDrafts(report.drafts);
       await refreshActiveBadge();
-      return { ok: true, ...counts, skipped: parsed.skipped };
+      return { ok: true, ...counts, report: summarize(report) };
     }
 
     case "CHANGE_PASSWORD":

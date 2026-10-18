@@ -136,12 +136,21 @@
         <div class="row">
           <div class="row-label">
             <span>导入 Chrome 密码</span>
-            <small>在 Chrome 设置里导出 CSV，再在这里导入</small>
+            <small>在 Chrome 设置里导出 CSV，导入前先给你看分类结果</small>
           </div>
           <label class="btn file-btn" id="csv-label" data-needs-unlock>
             选择 CSV
             <input type="file" id="csv-file" accept=".csv,text/csv" hidden />
           </label>
+        </div>
+        <div class="import-panel" id="csv-panel" hidden>
+          <div id="csv-summary"></div>
+          <div id="csv-domains"></div>
+          <div id="csv-samples"></div>
+          <div class="import-actions">
+            <button class="btn" id="csv-cancel" type="button">取消</button>
+            <button class="btn primary" id="csv-confirm" type="button">确认导入</button>
+          </div>
         </div>
         <div class="row">
           <div class="row-label">

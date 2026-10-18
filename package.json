@@ -10,7 +10,8 @@
     "dev": "node scripts/build.mjs --watch",
     "watch": "node scripts/build.mjs --watch",
     "typecheck": "tsc --noEmit",
-    "icons": "python3 scripts/make_icons.py"
+    "icons": "python3 scripts/make_icons.py",
+    "test": "node tests/csv.test.mjs"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.300",

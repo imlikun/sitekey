@@ -1,4 +1,5 @@
 import "./options.css";
+import type { CsvReportSummary } from "../core/csv";
 import type { Request, Settings, VaultRecord, VaultStatus } from "../core/types";
 
 const isExtension = typeof chrome !== "undefined" && Boolean(chrome.runtime?.id);
@@ -26,8 +27,37 @@ function humanError(error: unknown): string {
   return ERRORS[code] ?? "操作失败，请重试";
 }
 
+const DEMO_REPORT: CsvReportSummary = {
+  total: 63,
+  imported: 47,
+  duplicates: 4,
+  conflicts: 2,
+  hostScoped: 6,
+  skipped: [
+    { reason: "app-only", count: 7 },
+    { reason: "internal", count: 2 },
+    { reason: "no-username", count: 1 },
+  ],
+  hosts: [
+    { host: "mp.weixin.qq.com", count: 3 },
+    { host: "github.com", count: 2 },
+    { host: "ecs.console.aliyun.com", count: 2 },
+    { host: "appin.site", count: 2 },
+    { host: "www.figma.com", count: 1 },
+  ],
+  samples: [
+    { label: "client_a", username: "client_a@brand.com", host: "mp.weixin.qq.com", state: "conflict" },
+    { label: "ops", username: "ops@brand.com", host: "ecs.console.aliyun.com", state: "new" },
+  ],
+};
+
 async function rpc(request: Request): Promise<Record<string, any>> {
   if (!isExtension) {
+    if (request.type === "IMPORT_CSV") {
+      return request.dryRun
+        ? { ok: true, report: DEMO_REPORT }
+        : { ok: true, added: DEMO_REPORT.imported, updated: 0, report: DEMO_REPORT };
+    }
     return {
       ok: true,
       status: "unlocked",
@@ -156,17 +186,129 @@ async function importCsv(file: File): Promise<void> {
   }
   try {
     const text = await file.text();
-    const response = await rpc({ type: "IMPORT_CSV", text });
-    const added = Number(response.added ?? 0);
-    const updated = Number(response.updated ?? 0);
-    const skipped = Number(response.skipped ?? 0);
-    showToast(
-      `导入完成：新增 ${added} 条，更新 ${updated} 条${skipped ? `，跳过 ${skipped} 条` : ""}`,
-    );
-    await refreshStatus();
+    // 第一段只解析：先把「哪些能导、哪些跳过、哪些撞了」摆给用户看
+    const response = await rpc({ type: "IMPORT_CSV", text, dryRun: true });
+    pendingCsv = { text, report: response.report as CsvReportSummary, name: file.name };
+    renderReport();
   } catch (error) {
     showToast(humanError(error));
   }
+}
+
+let pendingCsv: { text: string; report: CsvReportSummary; name: string } | null = null;
+
+const SKIP_LABELS: Record<string, string> = {
+  "no-url": "没有网址",
+  "app-only": "手机 App 内密码",
+  internal: "浏览器内部页面",
+  "no-username": "缺少登录名",
+  "no-password": "缺少密码",
+};
+
+function renderReport(): void {
+  const panel = document.getElementById("csv-panel") as HTMLElement;
+  const summary = document.getElementById("csv-summary") as HTMLElement;
+  const domains = document.getElementById("csv-domains") as HTMLElement;
+  const samples = document.getElementById("csv-samples") as HTMLElement;
+  const confirm = document.getElementById("csv-confirm") as HTMLButtonElement;
+
+  if (!pendingCsv) {
+    panel.hidden = true;
+    return;
+  }
+
+  const { report, name } = pendingCsv;
+  const skippedTotal = report.skipped.reduce((sum, item) => sum + item.count, 0);
+
+  const facts: string[] = [`共 ${report.total} 行`, `可导入 ${report.imported} 条`];
+  if (report.duplicates) facts.push(`合并重复 ${report.duplicates} 条`);
+  if (report.conflicts) facts.push(`密码冲突 ${report.conflicts} 条`);
+  if (skippedTotal) facts.push(`跳过 ${skippedTotal} 条`);
+
+  summary.innerHTML = `
+    <div class="import-file">${esc(name)}</div>
+    <div class="import-facts">${facts.map((fact) => `<span>${esc(fact)}</span>`).join("")}</div>
+  `;
+
+  const domainRows = report.hosts
+    .map(
+      (item) =>
+        `<li><span class="mono">${esc(item.host)}</span><span class="count">${item.count}</span></li>`,
+    )
+    .join("");
+
+  const skipRows = report.skipped
+    .map(
+      (item) =>
+        `<li><span>${esc(SKIP_LABELS[item.reason] ?? item.reason)}</span><span class="count">${item.count}</span></li>`,
+    )
+    .join("");
+
+  domains.innerHTML = `
+    ${domainRows ? `<p class="import-caption">将导入</p><ul class="import-list">${domainRows}</ul>` : ""}
+    ${skipRows ? `<p class="import-caption">跳过</p><ul class="import-list import-list-muted">${skipRows}</ul>` : ""}
+    ${report.hostScoped ? `<p class="import-note">其中 ${report.hostScoped} 条按「仅此域名」导入：该站点存在多个子域，避免互相覆盖。</p>` : ""}
+  `;
+
+  const conflictRows = report.samples
+    .filter((sample) => sample.state === "conflict")
+    .map(
+      (sample) =>
+        `<li><span class="mono">${esc(sample.host)}</span><span class="who">${esc(sample.username)}</span></li>`,
+    )
+    .join("");
+
+  samples.innerHTML = conflictRows
+    ? `<div class="import-warn">同一账号在 Chrome 里存了不同密码，已保留第一条，其余跳过。登录失败时请回 Chrome 核对：</div>
+       <ul class="import-list import-list-warn">${conflictRows}</ul>`
+    : "";
+
+  confirm.textContent = report.imported > 0 ? `确认导入 ${report.imported} 条` : "没有可导入的账号";
+  confirm.disabled = report.imported === 0;
+  panel.hidden = false;
+}
+
+async function confirmCsv(): Promise<void> {
+  if (!pendingCsv) return;
+  const button = document.getElementById("csv-confirm") as HTMLButtonElement;
+  button.disabled = true;
+  button.textContent = "导入中…";
+  try {
+    const response = await rpc({ type: "IMPORT_CSV", text: pendingCsv.text });
+    const added = Number(response.added ?? 0);
+    const updated = Number(response.updated ?? 0);
+    showToast(`导入完成：新增 ${added} 条，更新 ${updated} 条`);
+    pendingCsv = null;
+    renderReport();
+    await refreshStatus();
+  } catch (error) {
+    showToast(humanError(error));
+    button.disabled = false;
+    renderReport();
+  }
+}
+
+function cancelCsv(): void {
+  pendingCsv = null;
+  renderReport();
+  showToast("已取消导入");
+}
+
+function esc(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => {
+    switch (character) {
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case '"':
+        return "&quot;";
+      default:
+        return "&#39;";
+    }
+  });
 }
 
 let clearArmed = false;
@@ -264,6 +406,11 @@ function bindDataActions(): void {
     const file = csvInput.files?.[0];
     if (file) void importCsv(file).finally(() => (csvInput.value = ""));
   });
+
+  (document.getElementById("csv-confirm") as HTMLButtonElement).addEventListener("click", () => {
+    void confirmCsv();
+  });
+  (document.getElementById("csv-cancel") as HTMLButtonElement).addEventListener("click", cancelCsv);
 }
 
 async function boot(): Promise<void> {
@@ -300,6 +447,12 @@ async function boot(): Promise<void> {
     await loadSettings();
   } catch {
     /* preview mode */
+  }
+
+  // 预览页里加 ?import 就能看到解析报告长什么样（真实扩展里不会触发）
+  if (!isExtension && new URLSearchParams(location.search).has("import")) {
+    pendingCsv = { text: "", report: DEMO_REPORT, name: "Chrome 密码.csv" };
+    renderReport();
   }
 }
 
