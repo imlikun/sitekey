@@ -11,7 +11,7 @@
     "watch": "node scripts/build.mjs --watch",
     "typecheck": "tsc --noEmit",
     "icons": "python3 scripts/make_icons.py",
-    "test": "node tests/csv.test.mjs"
+    "test": "node tests/csv.test.mjs && node tests/merge.test.mjs && node tests/sync.test.mjs"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.300",

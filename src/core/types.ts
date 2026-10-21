@@ -17,6 +17,10 @@ export interface Entry {
   createdAt: number;
   lastUsedAt: number;
   useCount: number;
+  /** 最后修改时间；多机合并靠它判断谁更新，旧数据没有时按 createdAt 兜底 */
+  updatedAt?: number;
+  /** 删除墓碑：删掉的记录留一个时间戳，合并时才能把「删除」同步出去 */
+  deletedAt?: number;
 }
 
 export interface SiteRule {
@@ -84,7 +88,7 @@ export type Request =
   | { type: "GET_SETTINGS" }
   | { type: "SET_SETTINGS"; settings: Partial<Settings> }
   | { type: "EXPORT" }
-  | { type: "IMPORT"; record: VaultRecord }
+  | { type: "IMPORT"; record: VaultRecord; backupPassword?: string }
   | { type: "IMPORT_CSV"; text: string; dryRun?: boolean }
   | { type: "CHANGE_PASSWORD"; current: string; next: string }
   | { type: "CLEAR" }

@@ -12,6 +12,7 @@ import {
   toBase64,
 } from "./crypto";
 import { entryMatchesHost, registrableDomain, sortEntries } from "./domain";
+import { mergeEntries, visibleEntries } from "./merge";
 import {
   getRecord,
   getSessionKey,
@@ -123,7 +124,9 @@ export async function listForHost(host: string): Promise<Entry[]> {
   if (!host) return [];
   await assertUnlocked();
   const vault = await readVault();
-  return sortEntries(vault.entries.filter((entry) => entryMatchesHost(entry, host)));
+  return sortEntries(
+    visibleEntries(vault.entries).filter((entry) => entryMatchesHost(entry, host)),
+  );
 }
 
 export async function saveDraft(draft: EntryDraft): Promise<{ entry: Entry; created: boolean }> {
@@ -145,11 +148,15 @@ export async function saveDraft(draft: EntryDraft): Promise<{ entry: Entry; crea
     existing.label = draft.label.trim() || existing.label;
     existing.note = draft.note ?? existing.note;
     existing.lastUsedAt = Date.now();
+    existing.updatedAt = Date.now();
     existing.useCount += 1;
+    // 重新添加同一个账号等于复活，清掉墓碑
+    delete existing.deletedAt;
     await writeVault(vault);
     return { entry: existing, created: false };
   }
 
+  const now = Date.now();
   const entry: Entry = {
     id: randomId(),
     domain,
@@ -160,8 +167,9 @@ export async function saveDraft(draft: EntryDraft): Promise<{ entry: Entry; crea
     password: draft.password,
     label: draft.label.trim() || username,
     note: draft.note,
-    createdAt: Date.now(),
-    lastUsedAt: Date.now(),
+    createdAt: now,
+    lastUsedAt: now,
+    updatedAt: now,
     useCount: 1,
   };
   vault.entries.push(entry);
@@ -184,6 +192,7 @@ export async function updateEntry(entry: Entry): Promise<Entry> {
     note: entry.note,
     scope: entry.scope,
     pattern: entry.pattern,
+    updatedAt: Date.now(),
   };
   vault.entries[index] = next;
   await writeVault(vault);
@@ -193,9 +202,12 @@ export async function updateEntry(entry: Entry): Promise<Entry> {
 export async function deleteEntry(id: string): Promise<void> {
   await assertUnlocked();
   const vault = await readVault();
-  const index = vault.entries.findIndex((entry) => entry.id === id);
-  if (index < 0) return;
-  vault.entries.splice(index, 1);
+  const entry = vault.entries.find((item) => item.id === id);
+  if (!entry) return;
+  // 留墓碑而不是直接抹掉：否则另一台机器合并时会把它当成「我有你没有」复活
+  const now = Date.now();
+  entry.deletedAt = now;
+  entry.updatedAt = now;
   await writeVault(vault);
 }
 
@@ -217,13 +229,56 @@ export async function exportRecord(): Promise<VaultRecord> {
   return requireRecord();
 }
 
-export async function importRecord(record: VaultRecord): Promise<void> {
+export interface ImportOutcome {
+  /** replaced = 本地是空库，直接接管备份；merged = 与本地合并 */
+  mode: "replaced" | "merged";
+  added: number;
+  updated: number;
+  deleted: number;
+  total: number;
+}
+
+export async function importRecord(record: VaultRecord, backupPassword?: string): Promise<ImportOutcome> {
   if (!record || record.v !== 1 || !record.salt || !record.verifier || !record.blob) {
     throw new Error("BAD_BACKUP");
   }
-  await setRecord(record);
-  await setSessionKey(null);
-  cache = null;
+  await assertUnlocked();
+  const local = await readVault();
+  const alive = visibleEntries(local.entries);
+
+  // 本机还没有任何记录：直接接管备份，连主密码一起换掉
+  if (alive.length === 0) {
+    await setRecord(record);
+    await setSessionKey(null);
+    cache = null;
+    return { mode: "replaced", added: 0, updated: 0, deleted: 0, total: 0 };
+  }
+
+  const currentRecord = await requireRecord();
+  let key: CryptoKey;
+  if (record.salt === currentRecord.salt) {
+    key = await requireKey();
+  } else {
+    // 两台机器各自建过库，salt 不同：要拿备份那台的密码单独解一次
+    if (!backupPassword) throw new Error("NEED_BACKUP_PASSWORD");
+    key = await deriveKey(backupPassword, fromBase64(record.salt), record.iterations);
+    if (!(await checkVerifier(key, record.verifier))) throw new Error("BAD_BACKUP_PASSWORD");
+  }
+
+  const parsed = JSON.parse(await decryptText(key, record.blob)) as Partial<VaultData>;
+  const merged = mergeEntries(local.entries, Array.isArray(parsed.entries) ? parsed.entries : []);
+  await writeVault({
+    entries: merged.entries,
+    rules: { ...local.rules, ...(parsed.rules ?? {}) },
+  });
+
+  return {
+    mode: "merged",
+    added: merged.added,
+    updated: merged.updated,
+    deleted: merged.deleted,
+    total: visibleEntries(merged.entries).length,
+  };
 }
 
 export async function clearVault(): Promise<void> {

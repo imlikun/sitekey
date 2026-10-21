@@ -18,6 +18,9 @@ const ERRORS: Record<string, string> = {
   NOT_INITIALIZED: "还没有创建保险库",
   LOCKED: "保险库已锁定，请先解锁",
   BAD_BACKUP: "备份文件无效",
+  NEED_BACKUP_PASSWORD: "这个备份用的是另一台机器的主密码",
+  BAD_BACKUP_PASSWORD: "备份那台机器的主密码不正确",
+  DIFFERENT_PASSWORD: "两台机器的备份用了不同的主密码，无法合并；请先把主密码改成一致",
   CSV_MISSING_COLUMNS: "CSV 缺少 url / username / password 列",
   UNKNOWN: "操作失败，请重试",
 };
@@ -170,10 +173,25 @@ async function importBackup(file: File): Promise<void> {
     const parsed = JSON.parse(text) as { record?: VaultRecord } & Partial<VaultRecord>;
     const record = (parsed.record ?? parsed) as VaultRecord;
     if (!record?.salt || !record?.blob || record.v !== 1) throw new Error("BAD_BACKUP");
-    if (!window.confirm("导入会覆盖当前保险库，确定继续？")) return;
-    await rpc({ type: "IMPORT", record });
+    if (!window.confirm("导入会与本机记录合并，同一条以修改时间较新的为准。继续？")) return;
+    let response: Record<string, any>;
+    try {
+      response = await rpc({ type: "IMPORT", record });
+    } catch (error) {
+      if ((error as Error)?.message !== "NEED_BACKUP_PASSWORD") throw error;
+      const password = window.prompt("这个备份是用另一台机器的主密码加密的，请输一次那台的密码");
+      if (!password) return;
+      response = await rpc({ type: "IMPORT", record, backupPassword: password });
+    }
+    if (response.mode === "replaced") {
+      showToast("已接管备份，请用原主密码重新解锁");
+    } else {
+      const parts = [`新增 ${Number(response.added ?? 0)} 条`];
+      if (Number(response.updated ?? 0) > 0) parts.push(`更新 ${Number(response.updated)} 条`);
+      if (Number(response.deleted ?? 0) > 0) parts.push(`删除 ${Number(response.deleted)} 条`);
+      showToast(`合并完成：${parts.join("，")}，现有 ${Number(response.total ?? 0)} 条`);
+    }
     await refreshStatus();
-    showToast("备份已导入，请重新解锁");
   } catch (error) {
     showToast(humanError(error));
   }

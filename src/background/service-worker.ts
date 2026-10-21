@@ -125,10 +125,11 @@ async function handle(request: Request, sender: chrome.runtime.MessageSender): P
     case "EXPORT":
       return { ok: true, record: await exportRecord() };
 
-    case "IMPORT":
-      await importRecord(request.record);
+    case "IMPORT": {
+      const outcome = await importRecord(request.record, request.backupPassword);
       await refreshActiveBadge();
-      return { ok: true };
+      return { ok: true, ...outcome };
+    }
 
     case "IMPORT_CSV": {
       await assertUnlocked();
