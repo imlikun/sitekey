@@ -8,7 +8,7 @@
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
   <img alt="Version" src="https://img.shields.io/badge/version-0.1.0-blue">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Chrome%20MV3-brightgreen">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-53%20passing-brightgreen">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-53%20unit%20%2B%2015%20e2e-brightgreen">
 </p>
 
 **SiteKey** is a local-first browser password manager. Your passwords stay encrypted on your own machine (PBKDF2-SHA256 + AES-256-GCM), it captures logins only after a successful submit, and never touches CAPTCHA or search fields. No account, no server, no telemetry. 中文文档见下文。
@@ -233,7 +233,8 @@ sitekey/
 │   ├── merge.test.mjs       # 多机合并：时间戳、语义键、墓碑
 │   ├── sync.test.mjs        # 三台设备跑真实加密链路的端到端同步
 │   ├── import.test.mjs      # CSV 导入 × 多机同步的交叉场景
-│   └── detector.test.mjs    # 表单门禁：支付/注册/搜索页必须填不进去
+│   ├── detector.test.mjs    # 表单门禁：支付/注册/搜索页必须填不进去
+│   └── e2e.mjs              # 真浏览器端到端：装扩展跑完整用户链路（15 项）
 └── src/
     ├── background/          # service worker：消息路由、会话锁、徽标、捕获暂存
     ├── content/             # 表单探测、资格门禁、填充、保存提示
@@ -248,9 +249,15 @@ sitekey/
 ```bash
 npm run dev        # 监听构建（等同于 npm run watch）
 npm run test       # 全量断言：CSV、合并、三机同步、导入交叉、表单门禁
+npm run test:e2e   # 真浏览器端到端：构建后加载 dist/ 跑 15 项完整链路
+npm run verify     # 一条命令回归：typecheck + 单测 + 端到端
 npm run typecheck  # tsc --noEmit
 npm run icons      # 重新生成图标
 ```
+
+`npm run test:e2e` 需要一个完整的 Chromium（不能是 headless shell，扩展在 shell 里加载不了）。脚本会按这个顺序自动找：`SITEKEY_BROWSER` 环境变量 → `playwright-core` 自带的浏览器 → Playwright 缓存 → 系统安装的 Chrome / Chromium / Edge。如果一台都没找到，执行 `npx playwright install chromium` 即可（只下浏览器，不装测试框架）。想看着它跑就加 `SITEKEY_E2E_HEADED=1`。
+
+端到端覆盖 15 项，重点守住三条产品红线：**提交后才捕获**、**验证码永不成为账号**、**注册/改密页不打扰**；另外覆盖锁定/解锁、填入、CSV 分类报告、换主密码后的跨库合并与幂等。
 
 弹窗支持脱离扩展预览：构建后直接用浏览器打开 `dist/popup.html`（不需要起本地服务器），会自动启用内存 mock 数据；加 `?state=locked` 或 `?state=setup` 可以预览锁定/初始化状态。为此 popup / options 两个入口打成 IIFE，而不是 ES module——`file://` 下浏览器会拦截 module 的跨源加载。
 
