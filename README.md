@@ -1,4 +1,19 @@
-# SiteKey · 站点钥匙
+<p align="center">
+  <img src="public/icons/icon-128.png" width="96" alt="SiteKey">
+</p>
+
+<h1 align="center">SiteKey · 站点钥匙</h1>
+
+<p align="center">
+  <img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.1.0-blue">
+  <img alt="Platform" src="https://img.shields.io/badge/platform-Chrome%20MV3-brightgreen">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-53%20passing-brightgreen">
+</p>
+
+**SiteKey** is a local-first browser password manager. Your passwords stay encrypted on your own machine (PBKDF2-SHA256 + AES-256-GCM), it captures logins only after a successful submit, and never touches CAPTCHA or search fields. No account, no server, no telemetry. 中文文档见下文。
+
+> 🚧 **状态 / Status：v0.1** — 功能开发已完成，但**尚未上架 Chrome 应用商店**。当前仅支持「开发者模式手动加载」安装（见下方「安装」）。商店上架与打包发布是后续计划。
 
 本地优先的浏览器密码管理器。只解决两件最烦的事：
 
@@ -36,7 +51,9 @@
 - **快捷键**：`⌘⇧L` / `Ctrl+Shift+L` 填入当前站点最近使用的账号。
 - **Liquid Glass 界面**：跟随系统深浅色，半透明玻璃层次，尊重「减少动态效果」。
 
-## 安装（开发模式）
+## 安装
+
+> 当前版本需要「开发者模式手动加载」（步骤见下），暂无一键安装包或应用商店入口。商店上架在路线图中。如果你只想用、不想碰命令行，可关注后续 Release。
 
 ```bash
 npm install

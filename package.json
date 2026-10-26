@@ -1,8 +1,17 @@
 {
   "name": "sitekey",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
   "description": "Local-first password manager that knows which account is which.",
+  "keywords": [
+    "password-manager",
+    "chrome-extension",
+    "mv3",
+    "local-first",
+    "encryption",
+    "pbkdf2",
+    "aes-gcm"
+  ],
   "license": "MIT",
   "type": "module",
   "scripts": {
