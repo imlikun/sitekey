@@ -22,9 +22,29 @@ import {
   setSessionKey,
   touchSession,
 } from "./storage";
-import type { Entry, EntryDraft, VaultData, VaultRecord, VaultStatus } from "./types";
+import type { Entry, EntryDraft, MatchScope, VaultData, VaultRecord, VaultStatus } from "./types";
 
 let cache: VaultData | null = null;
+
+/**
+ * 「同一个账号」的去重判定，saveDraft 与 importDrafts 共用同一份实现。
+ * 之前两处各写一遍同样的「域 + 范围 + 登录名」匹配，曾在一次改动里分叉，
+ * 导致导入时同账号没被识别成重复。集中到一处，避免再走偏。
+ */
+function findExistingEntry(
+  entries: Entry[],
+  match: { domain: string; username: string; scope: MatchScope; host?: string },
+): Entry | undefined {
+  const username = match.username.trim().toLowerCase();
+  return entries.find(
+    (entry) =>
+      entry.domain === match.domain &&
+      entry.username.trim().toLowerCase() === username &&
+      entry.scope === match.scope &&
+      // 仅此域名的记录按 host 区分，否则 a.x.com 会把 b.x.com 的密码覆盖掉
+      (match.scope !== "host" || entry.host === match.host),
+  );
+}
 
 export async function status(): Promise<VaultStatus> {
   const record = await getRecord();
@@ -135,13 +155,7 @@ export async function saveDraft(draft: EntryDraft): Promise<{ entry: Entry; crea
   const domain = draft.domain || registrableDomain(draft.host);
   const username = draft.username.trim();
 
-  const existing = vault.entries.find(
-    (entry) =>
-      entry.domain === domain &&
-      entry.username.trim().toLowerCase() === username.toLowerCase() &&
-      entry.scope === draft.scope &&
-      (draft.scope !== "host" || entry.host === draft.host),
-  );
+  const existing = findExistingEntry(vault.entries, { domain, username, scope: draft.scope, host: draft.host });
 
   if (existing) {
     existing.password = draft.password;
@@ -188,7 +202,7 @@ export async function updateEntry(entry: Entry): Promise<Entry> {
     ...current,
     label: entry.label.trim() || current.label,
     username: entry.username.trim() || current.username,
-    password: entry.password,
+    password: entry.password || current.password,
     note: entry.note,
     scope: entry.scope,
     pattern: entry.pattern,
@@ -317,18 +331,11 @@ export async function importDrafts(drafts: EntryDraft[]): Promise<{ added: numbe
   for (const draft of drafts) {
     const domain = draft.domain || registrableDomain(draft.host);
     const username = draft.username.trim();
-    const existing = vault.entries.find(
-      (entry) =>
-        entry.domain === domain &&
-        entry.username.trim().toLowerCase() === username.toLowerCase() &&
-        entry.scope === draft.scope &&
-        // 仅此域名的记录按 host 区分，否则 a.x.com 会把 b.x.com 的密码覆盖掉
-        (draft.scope !== "host" || entry.host === draft.host),
-    );
+    const existing = findExistingEntry(vault.entries, { domain, username, scope: draft.scope, host: draft.host });
     const now = Date.now();
     if (existing) {
       existing.password = draft.password;
-      if (draft.label) existing.label = draft.label;
+      existing.label = draft.label.trim() || existing.label;
       // 导入就是一次修改：不写 updatedAt 的话，多机合并时这台机器会被另一台的旧密码顶回去
       existing.updatedAt = now;
       // 之前删过、现在又从 CSV 里导进来，说明这个账号还得用，把墓碑清掉
