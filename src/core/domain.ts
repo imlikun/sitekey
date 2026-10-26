@@ -138,7 +138,8 @@ const IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/;
 const SHARED_DOMAINS = new Set([
   "qq.com",
   "tencent.com",
-  "weixin.qq.com",
+  // 注意：这里只放「注册域」。mp.weixin.qq.com 会被 registrableDomain 归到 qq.com，
+  // 所以不需要（也匹配不到）单独写 weixin.qq.com。
   "wechat.com",
   "google.com",
   "googleusercontent.com",

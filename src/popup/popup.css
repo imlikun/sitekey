@@ -242,6 +242,7 @@ body.preview .app {
 }
 
 .row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -348,15 +349,39 @@ mark {
   }
 }
 
-.more {
+/* 复制 / 编辑两个小按钮浮在行的右侧：不占布局宽度，
+   否则长账号的显示空间会被再挤掉 26px（上一轮刚为这个调过 .row-sub） */
+.row-tools {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding-left: 16px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, transparent 0%, var(--glass) 26%);
   opacity: 0;
-  width: 26px;
-  height: 26px;
+  pointer-events: none;
+  transition: opacity 0.14s;
 }
 
-.row:hover .more,
-.row:focus-within .more {
+.row-tools .icon-btn {
+  width: 26px;
+  height: 26px;
   opacity: 1;
+}
+
+.row:hover .row-tools,
+.row:focus-within .row-tools {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.row-tools .icon-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .empty {

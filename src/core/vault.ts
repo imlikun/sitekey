@@ -325,9 +325,14 @@ export async function importDrafts(drafts: EntryDraft[]): Promise<{ added: numbe
         // 仅此域名的记录按 host 区分，否则 a.x.com 会把 b.x.com 的密码覆盖掉
         (draft.scope !== "host" || entry.host === draft.host),
     );
+    const now = Date.now();
     if (existing) {
       existing.password = draft.password;
       if (draft.label) existing.label = draft.label;
+      // 导入就是一次修改：不写 updatedAt 的话，多机合并时这台机器会被另一台的旧密码顶回去
+      existing.updatedAt = now;
+      // 之前删过、现在又从 CSV 里导进来，说明这个账号还得用，把墓碑清掉
+      delete existing.deletedAt;
       updated += 1;
     } else {
       vault.entries.push({
@@ -340,8 +345,9 @@ export async function importDrafts(drafts: EntryDraft[]): Promise<{ added: numbe
         password: draft.password,
         label: draft.label.trim() || username,
         note: draft.note,
-        createdAt: Date.now(),
+        createdAt: now,
         lastUsedAt: 0,
+        updatedAt: now,
         useCount: 0,
       });
       added += 1;

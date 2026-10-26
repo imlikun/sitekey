@@ -16,13 +16,11 @@ let lastAt = 0;
 let prompting = false;
 let navigating = false;
 
-window.addEventListener(
-  "pagehide",
-  () => {
-    navigating = true;
-  },
-  { once: true },
-);
+// 只在页面真的要离开时置位。这里不加 { once: true }：页面进 bfcache 再回来以后
+// 还需要能再次判断，否则第二次离开就识别不到了。
+window.addEventListener("pagehide", () => {
+  navigating = true;
+});
 
 async function send(message: unknown): Promise<{ ok?: boolean; error?: string } | undefined> {
   try {
@@ -37,24 +35,27 @@ function promptSave(candidate: CaptureCandidate): void {
   prompting = true;
 
   const domain = registrableDomain(candidate.host);
-  showSaveToast(candidate, async (label) => {
-    const response = await send({
-      type: "SAVE",
-      draft: {
-        domain,
-        host: candidate.host,
-        scope: "smart",
-        username: candidate.username,
-        password: candidate.password,
-        label,
-      },
-    });
-    if (!response?.ok) throw new Error(response?.error ?? "SAVE_FAILED");
-  });
-
-  setTimeout(() => {
-    prompting = false;
-  }, 16_000);
+  showSaveToast(
+    candidate,
+    async (label) => {
+      const response = await send({
+        type: "SAVE",
+        draft: {
+          domain,
+          host: candidate.host,
+          scope: "smart",
+          username: candidate.username,
+          password: candidate.password,
+          label,
+        },
+      });
+      if (!response?.ok) throw new Error(response?.error ?? "SAVE_FAILED");
+    },
+    // 关掉就解锁。之前是固定 16 秒冷却，用户连着登两个账号时，第二个不弹提示。
+    () => {
+      prompting = false;
+    },
+  );
 }
 
 function capture(form: QualifiedForm): void {
@@ -76,13 +77,10 @@ function capture(form: QualifiedForm): void {
 
   void send({ type: "CANDIDATE", candidate });
 
-  window.addEventListener(
-    "pagehide",
-    () => {
-      navigating = true;
-    },
-    { once: true },
-  );
+  // 每次新的登录都重新判断「这一页还在不在」。之前这个标记一旦置 true 就再也没清过，
+  // 结果是页面只要经历过一次 pagehide（切后台、进 bfcache 都算），后面同一页里
+  // 再登录第二个账号就永远不弹保存提示了。
+  navigating = false;
 
   setTimeout(() => {
     if (navigating) return;

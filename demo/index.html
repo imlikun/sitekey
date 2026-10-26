@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SiteKey — 同一个网址，十个账号，Chrome 只记得一个</title>
+    <meta
+      name="description"
+      content="SiteKey 是一个本地优先的浏览器密码管理器，把「标签」放在第一行，解决同域名多账号分不清的问题。"
+    />
+    <link rel="stylesheet" href="demo.css" />
+  </head>
+  <body>
+    <div class="ambient" aria-hidden="true">
+      <span class="orb orb-a"></span>
+      <span class="orb orb-b"></span>
+    </div>
+
+    <header class="nav">
+      <a class="brand" href="#top">
+        <span class="mark">S</span>
+        <span class="brand-name">SiteKey</span>
+      </a>
+      <nav class="nav-links">
+        <a href="#demo">在线体验</a>
+        <a href="#why">解决什么</a>
+        <a href="#tech">怎么做的</a>
+      </nav>
+      <span class="nav-tag">开源 · MIT</span>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <p class="eyebrow">浏览器扩展 · 本地优先 · 零网络请求</p>
+        <h1>
+          同一个网址，十个账号<br />
+          <span class="grad">Chrome 只记得一个</span>
+        </h1>
+        <p class="lede">
+          微信公众平台、几个客户的后台，它们共用一个域名。Chrome 自带的密码管理器只认站点、不认人。
+          SiteKey 把「标签」提到第一行，登录名退到第二行——先认出是谁，再决定填哪个。
+        </p>
+        <div class="actions">
+          <a class="btn primary" href="#demo">直接上手试</a>
+          <a class="btn" href="#why">它怎么判断</a>
+        </div>
+        <ul class="facts">
+          <li><b>4</b><span>种匹配范围</span></li>
+          <li><b>310k</b><span>次 PBKDF2 迭代</span></li>
+          <li><b>0</b><span>个网络请求</span></li>
+        </ul>
+      </section>
+
+      <section id="demo" class="demo">
+        <div class="demo-copy">
+          <h2>这是一个真在跑的弹窗</h2>
+          <p>
+            下面五条是微信公众平台的账号，标签不同、登录名不同。搜「客户」两个字，或者直接点一行看看会发生什么。
+          </p>
+          <div class="tabs" role="tablist" aria-label="弹窗状态">
+            <button class="tab on" data-src="preview/popup.html" role="tab">账号列表</button>
+            <button class="tab" data-src="preview/popup.html?demo=editor" role="tab">编辑面板</button>
+            <button class="tab" data-src="preview/popup.html?demo=generator" role="tab">生成密码</button>
+            <button class="tab" data-src="preview/popup.html?state=locked" role="tab">锁定状态</button>
+          </div>
+          <p class="note">
+            演示数据存在你自己的浏览器里，不上传、不联网。真实使用时，密码会被 AES-256-GCM 加密后写进本地存储。
+          </p>
+        </div>
+
+        <div class="demo-stage">
+          <div class="window">
+            <div class="window-bar">
+              <span class="dot red"></span>
+              <span class="dot amber"></span>
+              <span class="dot green"></span>
+              <span class="address">
+                <span class="lock-icon">⌁</span>
+                mp.weixin.qq.com
+              </span>
+            </div>
+            <iframe
+              id="frame"
+              class="frame"
+              src="preview/popup.html"
+              title="SiteKey 弹窗在线演示"
+              loading="lazy"
+            ></iframe>
+          </div>
+          <p class="stage-hint">点击工具栏图标后看到的就是这一屏</p>
+        </div>
+      </section>
+
+      <section id="why" class="why">
+        <h2>它只解决两件事，但都是每天会撞上的</h2>
+        <div class="cards">
+          <article class="card">
+            <span class="card-no">01</span>
+            <h3>同域名，多账号</h3>
+            <p>
+              去重键是「注册域 + 登录名 + 匹配范围」，标签不参与去重，所以随时能改标签，不会多出一条记录。
+              列表按上次使用排序，常用的自然浮上来。
+            </p>
+            <ul>
+              <li>标签第一行，登录名第二行</li>
+              <li>搜索标签、账号、备注都能命中</li>
+              <li>「上次」标记最近用过的那条</li>
+            </ul>
+          </article>
+
+          <article class="card">
+            <span class="card-no">02</span>
+            <h3>验证码框不再乱弹保存</h3>
+            <p>
+              不是所有带密码框的表单都该记。SiteKey 给每个表单打分：可见密码框 +40、用户名类字段 +30、登录语义按钮 +20、URL 语义 +10，够 60 分才认。
+            </p>
+            <ul>
+              <li>验证码、搜索、注册改密一票否决</li>
+              <li>验证码字段只从用户名候选里剔除</li>
+              <li>提交并跳转后才提示，输入时不打断</li>
+            </ul>
+          </article>
+
+          <article class="card">
+            <span class="card-no">03</span>
+            <h3>密码留在本机</h3>
+            <p>
+              主密码经 PBKDF2-SHA256 派生 310,000 次，AES-256-GCM 加密后才落盘。解锁后的密钥只放浏览器会话内存，关掉浏览器就没了。
+            </p>
+            <ul>
+              <li>默认 5 分钟无操作自动锁</li>
+              <li>换机靠加密备份，合并而非覆盖</li>
+              <li>Chrome 导出的 CSV 可以先出报告再导入</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section id="tech" class="tech">
+        <div class="tech-copy">
+          <h2>怎么做的</h2>
+          <p>
+            没有框架、没有运行时依赖。Manifest V3 + TypeScript，esbuild 打四个入口，全部原生 API。
+          </p>
+          <dl class="spec">
+            <div>
+              <dt>站点匹配</dt>
+              <dd>内置精简 Public Suffix List，智能模式下 <code>qq.com</code>、<code>google.com</code> 这类共享平台自动退化为精确 host</dd>
+            </div>
+            <div>
+              <dt>表单探测</dt>
+              <dd>递归 6 层 Shadow DOM，同域 iframe 注入，SPA 的 submit / click / keydown 都监听</dd>
+            </div>
+            <div>
+              <dt>存储</dt>
+              <dd><code>chrome.storage.local</code> 只放密文，会话密钥在 <code>storage.session</code>，浏览器关闭即失效</dd>
+            </div>
+            <div>
+              <dt>多机同步</dt>
+              <dd>加密备份文件互相导入，按修改时间合并，删除用墓碑同步</dd>
+            </div>
+          </dl>
+        </div>
+        <div class="tech-side">
+          <div class="badge-box">
+            <p class="badge-label">技术栈</p>
+            <p class="badge-value">Manifest V3 · TypeScript · esbuild · Web Crypto</p>
+          </div>
+          <div class="badge-box">
+            <p class="badge-label">体积</p>
+            <p class="badge-value">四个入口，构建产物约 80 KB</p>
+          </div>
+          <div class="badge-box">
+            <p class="badge-label">许可</p>
+            <p class="badge-value">MIT，源码可读可改</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <p>SiteKey · 给「一个域名下有好几个我」的人</p>
+      <p class="foot-sub">本页为「1024 造物挑战」参赛作品说明页</p>
+    </footer>
+
+    <script src="demo.js"></script>
+  </body>
+</html>

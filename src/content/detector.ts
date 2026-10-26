@@ -8,7 +8,9 @@ export interface QualifiedForm {
 
 const OTP_PATTERN =
   /(otp|one[-_\s]?time|vcode|verify|verification|captcha|sms|auth[-_\s]?code|dynamic|验证码|校验码|动态码|短信)/i;
-const SEARCH_PATTERN = /(^|[-_])(q|query|search|keyword|wd|kw)([-_]|$)/i;
+// 分隔符里必须带空格：probe() 是把 name/id/placeholder 用空格拼起来的，
+// 只写 [-_] 的话 name="q" 这种最常见写法反而匹配不上（q 后面跟的是空格，不是行尾）。
+const SEARCH_PATTERN = /(^|[-_\s])(q|query|search|keyword|wd|kw|搜索|查找)([-_\s]|$)/i;
 const USERNAME_PATTERN = /(user|login|account|email|mail|mobile|phone|uin|id|账号|帐号|邮箱|手机|用户名)/i;
 const LOGIN_ACTION = /(登录|登入|登陆|立即登录|sign\s*in|log\s*in|login)/i;
 const BAD_ACTION =
@@ -134,15 +136,17 @@ function pageHasLoginSignal(): boolean {
   );
 }
 
-export function qualifyPassword(password: HTMLInputElement): QualifiedForm | null {
-  if (!isVisible(password) || !isEditable(password)) return null;
-  if ((password.autocomplete || "").toLowerCase().includes("new-password")) return null;
+/**
+ * 一票否决：验证码、支付、注册改密、确认密码、搜索。返回 true 表示这个框可以放心填。
+ * 归到一处，是因为「自动保存」和「快捷键填充」必须守同一道门——
+ * 之前填充走的降级匹配绕过了这些判断，在支付页按快捷键会把密码填进支付密码框。
+ */
+function isSafeTarget(password: HTMLInputElement, container: HTMLElement): boolean {
+  if ((password.autocomplete || "").toLowerCase().includes("new-password")) return false;
+  if (container.getAttribute("role") === "search") return false;
 
-  const container = containerOf(password);
   const inputs = visibleInputs(container);
-
-  if (container.getAttribute("role") === "search") return null;
-  if (inputs.some((input) => input !== password && PAYMENT_PATTERN.test(probe(input)))) return null;
+  if (inputs.some((input) => input !== password && PAYMENT_PATTERN.test(probe(input)))) return false;
 
   const confirm = inputs.some(
     (input) =>
@@ -150,20 +154,30 @@ export function qualifyPassword(password: HTMLInputElement): QualifiedForm | nul
       input.type === "password" &&
       /(confirm|repeat|new|再次|确认|重复)/i.test(`${input.name} ${input.id} ${input.autocomplete} ${input.placeholder}`),
   );
-  if (confirm) return null;
+  if (confirm) return false;
+
+  const actionText = actionTextOf(container);
+  if (actionText && BAD_ACTION.test(actionText)) return false;
+  return true;
+}
+
+export function qualifyPassword(password: HTMLInputElement): QualifiedForm | null {
+  if (!isVisible(password) || !isEditable(password)) return null;
+
+  const container = containerOf(password);
+  if (!isSafeTarget(password, container)) return null;
 
   const username = findUsername(password, container);
   if (!username) return null;
 
   const actionText = actionTextOf(container);
-  if (actionText && BAD_ACTION.test(actionText)) return null;
-
-  let score = 40;
-  score += 30;
+  // 门禁在上面已经逐条排除完了，这里的分数只用来给同页多个候选表单排序，
+  // 不参与「能不能填」的判断——写成阈值判断会让人以为分数低就会被拦下。
+  let score = 40; // 可见、可编辑的密码框
+  score += 30; // 找得到配对的账号输入框
   if (actionText && LOGIN_ACTION.test(actionText)) score += 20;
   if (pageHasLoginSignal()) score += 10;
 
-  if (score < 60) return null;
   return { password, username, container, score, actionText };
 }
 
@@ -184,18 +198,10 @@ export function findBestForm(): QualifiedForm | null {
 }
 
 export function findFillTarget(): QualifiedForm | null {
-  const qualified = findBestForm();
-  if (qualified) return qualified;
-
-  for (const input of collectInputs()) {
-    if (input.type !== "password" || !isVisible(input) || !isEditable(input)) continue;
-    const container = containerOf(input);
-    const username = findUsername(input, container);
-    if (username) {
-      return { password: input, username, container, score: 0, actionText: "" };
-    }
-  }
-  return null;
+  // 以前这里还有一层「找不到登录按钮也硬填」的降级匹配，但它绕过了验证码/支付/注册这些
+  // 一票否决，等于在付款页按快捷键就会把密码灌进支付密码框。现在统一走 qualifyPassword，
+  // 少了登录按钮只影响排序分数，不影响能不能填。
+  return findBestForm();
 }
 
 export function readCredentials(form: QualifiedForm): {

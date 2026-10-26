@@ -37,7 +37,8 @@ const ERRORS: Record<string, string> = {
   NOT_INITIALIZED: "还没有创建保险库",
   LOCKED: "保险库已锁定，请重新解锁",
   NOT_FOUND: "找不到这条记录",
-  NO_CONTENT_SCRIPT: "当前页面不支持自动填充，可以打开编辑面板复制",
+  NO_CONTENT_SCRIPT: "这个页面不允许扩展写入，可以点 ⋯ 复制密码",
+  NO_PASSWORD_FIELD: "这一页没找到登录输入框，可以点 ⋯ 复制密码",
   NO_TAB: "找不到当前标签页",
   BAD_BACKUP: "备份文件无效",
   CSV_MISSING_COLUMNS: "CSV 缺少 url / username / password 列",
@@ -166,7 +167,10 @@ function rowHtml(entry: Entry, index: number): string {
         </div>
         <div class="row-sub"><span class="who">${highlight(entry.username, query)}</span><span class="dot">·</span><span class="time">${relativeTime(entry.lastUsedAt)}</span></div>
       </div>
-      <button class="icon-btn more" data-act="edit" data-id="${entry.id}" title="编辑" aria-label="编辑">${icons.more}</button>
+      <div class="row-tools">
+        <button class="icon-btn copy" data-act="copy-pass" data-id="${entry.id}" title="复制密码" aria-label="复制密码">${icons.copy}</button>
+        <button class="icon-btn more" data-act="edit" data-id="${entry.id}" title="编辑" aria-label="编辑">${icons.more}</button>
+      </div>
     </div>
   `;
 }
@@ -320,6 +324,17 @@ async function boot(): Promise<void> {
     state.status = "locked";
   }
   render();
+  applyDemoState();
+}
+
+/** 演示页用 ?demo=editor|generator 直接展开对应面板 */
+function applyDemoState(): void {
+  const demo = new URLSearchParams(location.search).get("demo");
+  if (!demo || state.status !== "unlocked") return;
+  window.setTimeout(() => {
+    if (demo === "editor") openEditor(null);
+    if (demo === "generator") openGenerator();
+  }, 90);
 }
 
 function openSheet(html: string): void {
@@ -703,9 +718,12 @@ function handleActionClick(event: MouseEvent): void {
       case "copy-user":
         void copyText(currentFormValue("username"), "登录名");
         break;
-      case "copy-pass":
-        void copyText(currentFormValue("password"), "密码");
+      case "copy-pass": {
+        // 行上的复制按钮带 data-id，从内存里的条目取；编辑面板里的按钮没有 id，从表单取
+        const row = id ? state.entries.find((entry) => entry.id === id) : null;
+        void copyText(row ? row.password : currentFormValue("password"), "密码");
         break;
+      }
       case "delete":
         handleDelete(actionElement as HTMLButtonElement);
         break;
@@ -792,14 +810,28 @@ document.addEventListener("keydown", (event) => {
 
   if (event.key === "ArrowDown" || event.key === "ArrowUp") {
     const rows = Array.from(document.querySelectorAll<HTMLElement>(".row[data-id]"));
+    if (!rows.length) return;
     const current =
       event.target instanceof HTMLElement ? event.target.closest<HTMLElement>(".row[data-id]") : null;
-    if (!rows.length || !current) return;
+
+    // 搜索框里按 ↓ 直接落到第一条：搜完就想选，不该先按 Tab 绕一圈
+    if (!current) {
+      if (
+        event.key === "ArrowDown" &&
+        event.target instanceof HTMLInputElement &&
+        event.target.id === "search"
+      ) {
+        event.preventDefault();
+        rows[0]?.focus();
+      }
+      return;
+    }
+
     const index = rows.indexOf(current);
     if (index < 0) return;
     event.preventDefault();
     const next = event.key === "ArrowDown" ? Math.min(rows.length - 1, index + 1) : Math.max(0, index - 1);
-    rows[next].focus();
+    rows[next]?.focus();
     return;
   }
 

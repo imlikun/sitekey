@@ -13,6 +13,7 @@ function escapeHtml(value: string): string {
 export function showSaveToast(
   candidate: CaptureCandidate,
   onSave: (label: string) => Promise<void>,
+  onClose?: () => void,
 ): void {
   document.getElementById(HOST_ID)?.remove();
 
@@ -138,6 +139,7 @@ export function showSaveToast(
     closing = true;
     card.classList.add("leaving");
     setTimeout(() => host.remove(), 200);
+    onClose?.();
   };
 
   const timer = setTimeout(close, 15_000);

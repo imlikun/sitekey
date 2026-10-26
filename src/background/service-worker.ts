@@ -63,8 +63,12 @@ async function fillEntry(id: string, tabId?: number): Promise<void> {
   };
 
   try {
-    await chrome.tabs.sendMessage(targetTab, message);
-  } catch {
+    const reply = (await chrome.tabs.sendMessage(targetTab, message)) as { ok?: boolean } | undefined;
+    // 页面上没有可填的登录表单时 content script 会回 ok:false。
+    // 以前这里不看返回值，照样标记「刚用过」并提示成功——用户以为填上了，其实一个字都没进。
+    if (reply && reply.ok === false) throw new Error("NO_PASSWORD_FIELD");
+  } catch (error) {
+    if (error instanceof Error && error.message === "NO_PASSWORD_FIELD") throw error;
     throw new Error("NO_CONTENT_SCRIPT");
   }
   await markUsed(id);
